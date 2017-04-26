@@ -1,0 +1,122 @@
+Phase: Annotations
+Input: Token Lookup
+Options: control = appelt
+
+Rule: Words
+(
+    {Token}
+):token
+-->
+:token.Word = {rule = "Words"}
+
+
+Rule: Year
+(
+    {Lookup.majorType == "Year"}
+):year
+-->
+:year.Year = {rule = Year}
+
+Phase: Dates
+Input: Token Date
+Options: control = first
+
+Rule: EnclosedDate
+(
+    {Token.string == "("}
+    {Date}
+    {Token.string == ")"}
+):token
+-->
+:token.EnclosedDate = {rule = "EnclosedDate"}
+
+Phase: Dates
+Input: Date
+Options: control = first
+
+Rule: DatePairs
+(
+    {Date}
+    {Date}
+):token
+-->
+:token.DatePair = {rule = "DatePairs"}
+
+Phase: Groups
+Input: Token
+Options: control = first
+
+Rule: WordAfterNumber
+    {Token.kind == number}
+    ({Token.kind == word}):word
+-->
+:word.WordAfterNumber = {rule = "WordAfterNumber"}
+
+Phase: Alternatives
+Input: Date Token
+Options: control = first
+
+Rule: DateOrNumber
+(
+    (
+       {Token.string == number}
+       {Token.string == two}
+    ) |
+    {Token.string == 2}
+):token
+-->
+:token.DateOrNumber = {rule = "DateOrNumber"}
+
+Phase: Modifiers
+Input: Token
+Options: control = first
+
+Rule: OptionalToken
+(
+    (
+       ({Token.string == number})?
+       {Token.string == two}
+    ) |
+    {Token.string == 2}
+):token
+-->
+:token.DateOrNumber = {rule = "DateOrNumber"}
+
+Phase: AdvancedRHS
+Input: Token
+Options: control = first
+
+Rule: NombreEnlazado
+(
+    {Token.string == nombre}
+    ({Token}):name
+):wholename
+-->
+:name.NombreEnlazado = {},
+{
+    AnnotationSet names = bindings.get("name");
+    doc.getFeatures().put("names", names.toString());
+    doc.getFeatures().put("wholename", bindings.get("wholename"));
+    for(Annotation a : names){
+        String text = (String) a.getFeatures().get("string");
+        System.out.println(text);
+        int separatorPos = text.indexOf("-");
+        if(separatorPos > 0){
+            Long start = a.getStartNode().getOffset();
+            Long endName = start+separatorPos;
+            
+            Long startSurname = endName+1;
+            Long end = a.getEndNode().getOffset();
+
+            try {
+                // Add name annotation
+                outputAS.add(start, endName, "Name", Factory.newFeatureMap());
+            
+                // Add surname annotation
+                outputAS.add(startSurname, end, "Surname", Factory.newFeatureMap());
+            } catch(InvalidOffsetException e){
+                e.printStackTrace();
+            }
+        }
+    }
+}
